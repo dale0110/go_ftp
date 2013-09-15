@@ -1,0 +1,399 @@
+package main
+
+import (
+				"fmt"
+				"time"
+				"log"
+				"net"
+				"io"
+				"strconv"
+				//"runtime"
+				"strings"
+				"os"
+				//"bufio"
+				//"regexp"
+)
+
+
+var ftp_conn net.Conn
+
+var data_conn net.Conn
+
+var data_listener net.Listener
+
+var err error
+
+/*
+var user_name = "admin"
+var user_passwd = "zhongxing"
+var	ftp_addr ="192.168.1.5:21"
+*/
+
+/*
+var user_name = "anonymous"
+var user_passwd = "kevin@gmail.com"
+var	ftp_addr ="ftp.freebsd.org:21"
+*/
+
+
+var user_name = "anonymous"
+var user_passwd = "kevin@gmail.com"
+var	ftp_addr ="127.0.0.1:21"
+
+
+/*
+var user_name = "anonymous"
+var user_passwd = "kevin@gmail.com"
+var	ftp_addr ="10.80.77.151:7021"
+*/
+
+/*
+var user_name = "anonymous"
+var user_passwd = "kevin@gmail.com"
+var	ftp_addr ="10.80.222.35:36"
+*/
+
+/*
+var user_name = "anonymous"
+var user_passwd = "kevin@gmail.com"
+var	ftp_addr ="10.80.85.162:21"
+*/
+
+func time_test(){
+	t :=time.Now()
+	fmt.Println(t)
+	fmt.Println(t)
+	fmt.Println("%d\n",t.Year())
+}
+
+/*
+func isTimeout(err error) bool {
+	e, ok := err.(error)
+	return ok && e.Timeout()
+}
+*/
+
+func ftpcmd(cmd string,result []uint8,sock net.Conn){
+    
+    //send cmd
+    cmd +="\r\n"
+    send_buf :=[]byte(cmd)
+    buf_len :=0
+    
+    //fmt.Println("%s\n",send_buf)
+    sock.SetDeadline(time.Now().Add(1000 * time.Millisecond))
+    send_len,err :=sock.Write(send_buf)
+    if err != nil {
+			log.Fatal(err)
+		}
+	
+    log.Printf("send:%d,%s",send_len,send_buf[:])
+    
+    //loop read the result of cmd
+    for{
+      read_len,err :=sock.Read(result[buf_len:])
+	    if err != nil {
+	    /*
+	        if err.Timeout(){
+              log.Printf("RECV time out")
+      	      break
+            }
+        */
+        
+          //log.Printf("RECV time out")
+		      //log.Fatal(err)
+		    break
+	    }
+	    if(read_len==0){
+	        break
+	    }
+	   //log.Printf("RECV:read_len %d,%s",read_len,result[buf_len:read_len])
+	    buf_len+=read_len
+		}
+		//log.Printf("RECV:%d,%q",read_len,result[:])
+		log.Printf("RECV:%d,%s",buf_len,result[:buf_len])
+}
+
+
+func init_data_port(data_port string){
+
+	data_listener, err = net.Listen("tcp", data_port)
+	if err != nil {
+		log.Fatal(err)
+	}
+    log.Printf(" data port listen OK")
+}
+
+/*
+func data_connect(){
+
+	data_conn, err =data_listener.Accept()
+	if err != nil {
+		log.Fatal(err)
+	}
+    log.Printf("data connect OK")
+		
+}
+*/
+
+
+func trans_file(file_name string){
+
+	read_buf := make([]uint8, 4096)
+	 
+	
+	data_conn.SetDeadline(time.Now().Add(1000 * time.Millisecond))
+	
+	defer data_conn.Close()
+	
+	write_file,write_err:=os.OpenFile(file_name,os.O_WRONLY|os.O_CREATE,0666)
+	
+	if write_err != nil {
+		log.Fatal(write_err)
+	}
+	
+	defer write_file.Close()
+	
+	for{
+		read_len,err:=data_conn.Read(read_buf[:])
+		if err == io.EOF {
+	    log.Printf("RECV end")
+	    return 
+		}else if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Printf("RECV:%d,%s",read_len,read_buf[:read_len])
+				
+		//loop write file
+		write_len,write_err:=write_file.Write(read_buf[:read_len])
+		
+		if write_err != nil {
+			log.Fatal(write_err)
+		}
+		
+	  log.Printf("write:%d",write_len)
+	}
+}
+
+func trans_data(){
+
+	read_buf := make([]uint8, 4096)
+	 
+	
+	data_conn.SetDeadline(time.Now().Add(1000 * time.Millisecond))
+	
+	defer data_conn.Close()
+	
+
+
+	for{
+		read_len,err:=data_conn.Read(read_buf[:])
+		if err == io.EOF {
+	    log.Printf("RECV end")
+	    return 
+		}else if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Printf("RECV:%d,%s",read_len,read_buf[:read_len])
+	}
+}
+
+func pasv_trans_data(ip_port string,file_name string){
+
+	read_buf := make([]uint8, 4096)
+	
+	data_conn, err = net.Dial("tcp", ip_port)
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+
+	
+	data_conn.SetDeadline(time.Now().Add(1000 * time.Millisecond))
+	
+	defer data_conn.Close()
+	
+	write_file,write_err:=os.OpenFile(file_name,os.O_WRONLY|os.O_CREATE,0666)
+	
+	if write_err != nil {
+		log.Fatal(write_err)
+	}
+	
+	defer write_file.Close()
+	
+	for{
+		read_len,err:=data_conn.Read(read_buf[:])
+		if err == io.EOF {
+	    log.Printf("RECV end")
+	    return 
+		}else if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Printf("RECV:%d,%s",read_len,read_buf[:read_len])
+				
+		//loop write file
+		write_len,write_err:=write_file.Write(read_buf[:read_len])
+		
+		if write_err != nil {
+			log.Fatal(write_err)
+		}
+		
+	  log.Printf("write:%d",write_len)
+	}
+}
+/*get the data ip and port from the recv buf*/
+func get_ip_port_v1(recv_buf []uint8) string{
+  	var port_high  int
+  	var port_low   int
+  	var ip [4]int
+
+
+    //raw_buf:=recv_buf[27:]
+    
+        
+    //log.Printf("raw_buf:%s",raw_buf)
+    
+    /*
+    ip_buf:=strings.Split(string(raw_buf),",")
+    log.Printf("ip_buf:%s %s %s %s %s %s",ip_buf[0],ip_buf[1],ip_buf[2],ip_buf[3],ip_buf[4],ip_buf[5])
+    */
+    
+    /*227 Entering Passive Mode (10,80,222,35,216,4).*/
+    fmt.Sscanf(string(recv_buf),"*(%d,%d,%d,%d,%d,%d)*",&ip[0],&ip[1],&ip[2],&ip[3],&port_high,&port_low)
+    
+    //fmt.sprintf(recv_buf,"*(%d,%d,%d,%d,%d,%d)*",&ip[0],&ip[1],&ip[2],&ip[3],&port_high,&port_low)
+
+    //port_high,_=strconv.Atoi(ip_buf[4])
+    //port_low,_=strconv.Atoi(ip_buf[5])
+    
+    log.Printf("ip:%d %d %d %d port_high:%d port_low:%d",ip[0],ip[1],ip[2],ip[3],port_high,port_low)
+    
+    port:=port_high*256+port_low
+    log.Printf("port:%d",port)
+    
+    ip_port:=strconv.Itoa(ip[0])+"."+strconv.Itoa(ip[1])+"."+strconv.Itoa(ip[2])+"."+strconv.Itoa(ip[3])+":"+strconv.Itoa(port)
+    log.Printf("ip_port:%s",ip_port)
+    return ip_port
+}
+
+/*get the data ip and port from the recv buf*/
+func get_ip_port(recv_buf string) string{
+  	var port[2] int
+  	var ip [4]int
+
+    //log.Printf("recv_buf:%s",recv_buf)
+    
+    ip_buf1:=strings.Split(recv_buf,")")
+    ip_buf2:=strings.Split(ip_buf1[0],"(")
+    //fmt.Printf("%v\n",ip_buf2)
+    //log.Printf("ip_buf2[1]:%s",ip_buf2[1])
+    
+    /*227 Entering Passive Mode (10,80,222,35,216,4).*/
+    fmt.Sscanf(ip_buf2[1],"%d,%d,%d,%d,%d,%d",&ip[0],&ip[1],&ip[2],&ip[3],&port[0],&port[1])
+    
+    //fmt.Sprintf(ip_port,"%d.%d.%d.%d:%d",ip[0],ip[1],ip[2],ip[3],port[0]*0XFF+port[1])
+    ip_port:=strconv.Itoa(ip[0])+"."+strconv.Itoa(ip[1])+"."+strconv.Itoa(ip[2])+"."+strconv.Itoa(ip[3])+":"+strconv.Itoa(port[0]*256+port[1])
+    log.Printf("ip port:%s",ip_port)
+    return ip_port
+}
+
+func main_test1(){
+
+ recv_buf:="227 Entering Passive Mode (10,80,222,35,216,4)."
+  //recv_buf:="(10,80,222,35,216,4)"
+
+   //	var ip0,ip1,ip2,ip3 int
+   	 // 	var port_high, port_low int
+   	//  	  	var tmp1,tmp2 string
+ 
+ //fmt.Sscanf(recv_buf,"(%d,%d,%d,%d,%d,%d)",&ip0,&ip1,&ip2,&ip3,&port_high,&port_low)
+
+ //log.Printf("ip:%d %d %d %d port_high:%d port_low:%d",ip0,ip1,ip2,ip3,port_high,port_low)
+
+ 
+ get_ip_port(recv_buf)
+}
+
+func main(){
+
+ var data_port string 
+
+	data := make([]uint8, 4096)
+	read_buf := make([]uint8, 4096) 
+	
+	
+	ftp_conn, err = net.Dial("tcp", ftp_addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	
+	defer 	ftp_conn.Close()
+	
+	log.Println("Connect Server: " + ftp_addr + " OK")
+	
+	/* need loop for read sock buf */
+	read_len,err :=ftp_conn.Read(data[:])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("Server Response:%d,%s",read_len,data[:read_len])
+	
+	ftpcmd("USER "+user_name,read_buf,ftp_conn)
+	
+    ftpcmd("PASS "+user_passwd,read_buf,ftp_conn)
+    
+
+    
+    ftpcmd("SYST ",read_buf,ftp_conn)
+    
+
+    ftpcmd("TYPE I",read_buf,ftp_conn)
+    
+    //init_data_port(":4999")
+  
+    //ftpcmd("PORT 192,168,1,199,19,135",read_buf,ftp_conn)
+    
+    //data_connect()
+    
+    //ftpcmd("RETR trace_evt.log",read_buf,ftp_conn)
+    
+    //trans_data("trace_evt.log")
+    
+    
+    //NLIST
+    ftpcmd("PASV ",read_buf,ftp_conn)
+    
+    data_port=get_ip_port(string(read_buf))
+    
+    ftpcmd("CWD pub/FreeBSD",read_buf,ftp_conn)
+    
+    ftpcmd("NLST",read_buf,ftp_conn)
+        
+    pasv_trans_data(data_port,"TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi")
+    
+    
+    //download README.TXT
+    ftpcmd("PASV ",read_buf,ftp_conn)
+
+    ftpcmd("RETR README.TXT",read_buf,ftp_conn)
+        
+    data_port=get_ip_port(string(read_buf))
+
+    pasv_trans_data(data_port,"README.TXT")
+
+
+    //ftpcmd("TYPE A",read_buf,ftp_conn)
+
+   
+    //ftpcmd("LIST /",read_buf,ftp_conn)
+    //ftpcmd("PWD ",read_buf,ftp_conn)
+    ftpcmd("XPWD ",read_buf,ftp_conn)
+
+    
+	  ftpcmd("QUIT",read_buf,ftp_conn)
+}
