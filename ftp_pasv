@@ -48,6 +48,12 @@ var user_name = "anonymous"
 var user_passwd = "kevin@gmail.com"
 var ftp_addr = "10.80.222.35:36"
 
+type ftp_server struct {
+	ip_port string //"10.80.222.35:36"
+	name    string //"anonymous"
+	passed  string //"10.80.222.35:36"
+}
+
 /*
 var user_name = "anonymous"
 var user_passwd = "kevin@gmail.com"
@@ -217,7 +223,7 @@ func trans_data() {
 
 func pasv_trans_data(ip_port string, file_name string) {
 
-	var start int
+	var file_len int64
 
 	read_buf := make([]uint8, 4096)
 
@@ -238,35 +244,59 @@ func pasv_trans_data(ip_port string, file_name string) {
 
 	defer write_file.Close()
 
-	recv_len = 0
+	file_len = 0
 	for {
 		read_len, err := data_conn.Read(read_buf[:])
 		if err == io.EOF {
-			log.Printf("RECV end")
-			return
+			//log.Printf("RECV end")
+			break
 		} else if err != nil {
 			log.Fatal(err)
 		}
 
 		//log.Printf("RECV:%d,%s", read_len, read_buf[:read_len])
-
-		//loop write file
-		start = 0
-		for {
-			write_len, write_err := write_file.Write(read_buf[start:read_len])
-
-			if write_err != nil {
-				log.Fatal(write_err)
-			}
-
-			start += write_len
-			if start >= read_len {
-				break
-			}
-		}
+		write2file(read_buf, read_len, write_file)
+		file_len += int64(read_len)
 
 		//log.Printf("recv :%d write:%d", read_len, start)
 	}
+
+	log.Printf("download :%s :%d", file_name, file_len)
+
+	return
+}
+
+func write2file(buf []byte, length int, file *os.File) {
+	//loop write file
+	start := 0
+	for {
+		write_len, write_err := file.Write(buf[start:length])
+
+		if write_err != nil {
+			log.Fatal(write_err)
+		}
+
+		start += write_len
+		if start >= length {
+			break
+		}
+	}
+	return
+
+}
+
+func main_logtest() {
+	logfile, err := os.OpenFile("test.log", os.O_RDWR|os.O_CREATE, 0)
+	if err != nil {
+		fmt.Printf("%s\r\n", err.Error())
+		os.Exit(-1)
+	}
+	defer logfile.Close()
+	logger := log.New(logfile, "\r\n", log.Ldate|log.Ltime|log.Llongfile)
+	logger.Println("hello")
+	logger.Println("oh....")
+	logger.Fatal("test")
+	logger.Fatal("test2")
 }
 
 /*get the data ip and port from the recv buf*/
@@ -321,20 +351,6 @@ func get_ip_port(recv_buf string) string {
 	ip_port := strconv.Itoa(ip[0]) + "." + strconv.Itoa(ip[1]) + "." + strconv.Itoa(ip[2]) + "." + strconv.Itoa(ip[3]) + ":" + strconv.Itoa(port[0]*256+port[1])
 	log.Printf("ip port:%s", ip_port)
 	return ip_port
-}
-
-func main_logtest() {
-	logfile, err := os.OpenFile("test.log", os.O_RDWR|os.O_CREATE, 0)
-	if err != nil {
-		fmt.Printf("%s\r\n", err.Error())
-		os.Exit(-1)
-	}
-	defer logfile.Close()
-	logger := log.New(logfile, "\r\n", log.Ldate|log.Ltime|log.Llongfile)
-	logger.Println("hello")
-	logger.Println("oh....")
-	logger.Fatal("test")
-	logger.Fatal("test2")
 }
 
 func main() {
