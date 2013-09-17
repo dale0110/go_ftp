@@ -51,7 +51,7 @@ var ftp_addr = "10.80.222.35:36"
 type ftp_server struct {
 	ip_port string //"10.80.222.35:36"
 	name    string //"anonymous"
-	passed  string //"10.80.222.35:36"
+	passed  string //"kevin@gmail.com"
 }
 
 /*
