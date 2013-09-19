@@ -16,7 +16,7 @@ import (
 
 var ftp_conn net.Conn
 
-var data_conn net.Conn
+//var data_conn net.Conn
 
 var data_listener net.Listener
 
@@ -150,25 +150,31 @@ func init_data_port(data_port string) {
 	log.Printf(" data port listen OK")
 }
 
-/*
-func data_connect(){
+func data_connect() net.Conn {
+	var data_conn net.Conn
 
-	data_conn, err =data_listener.Accept()
+	data_conn, err = data_listener.Accept()
 	if err != nil {
 		log.Fatal(err)
 	}
-    log.Printf("data connect OK")
+	log.Printf("data connect OK")
+
+	return data_conn
 
 }
-*/
 
-func trans_file(file_name string) {
+func port_trans_file(file_name string, data_conn net.Conn) {
+
+	trans_file(file_name, data_conn)
+}
+
+func trans_file(file_name string, data_conn net.Conn) {
+
+	var file_len int64
 
 	read_buf := make([]uint8, 4096)
 
-	data_conn.SetDeadline(time.Now().Add(1000 * time.Millisecond))
-
-	defer data_conn.Close()
+	//data_conn.SetDeadline(time.Now().Add(1000 * time.Millisecond))
 
 	write_file, write_err := os.OpenFile(file_name, os.O_WRONLY|os.O_CREATE, 0666)
 
@@ -176,54 +182,35 @@ func trans_file(file_name string) {
 		log.Fatal(write_err)
 	}
 
+	defer data_conn.Close()
 	defer write_file.Close()
 
+	file_len = 0
 	for {
 		read_len, err := data_conn.Read(read_buf[:])
 		if err == io.EOF {
-			log.Printf("RECV end")
-			return
+			//log.Printf("RECV end")
+			break
 		} else if err != nil {
 			log.Fatal(err)
 		}
 
-		log.Printf("RECV:%d,%s", read_len, read_buf[:read_len])
+		//log.Printf("RECV:%d,%s", read_len, read_buf[:read_len])
+		write2file(read_buf, read_len, write_file)
+		file_len += int64(read_len)
 
-		//loop write file
-		write_len, write_err := write_file.Write(read_buf[:read_len])
-
-		if write_err != nil {
-			log.Fatal(write_err)
-		}
-
-		log.Printf("write:%d", write_len)
+		//log.Printf("recv :%d write:%d", read_len, start)
 	}
+
+	log.Printf("download :%s :%d", file_name, file_len)
+
+	return
 }
 
-func trans_data() {
-
-	read_buf := make([]uint8, 4096)
-
-	data_conn.SetDeadline(time.Now().Add(1000 * time.Millisecond))
-
-	defer data_conn.Close()
-
-	for {
-		read_len, err := data_conn.Read(read_buf[:])
-		if err == io.EOF {
-			log.Printf("RECV end")
-			return
-		} else if err != nil {
-			log.Fatal(err)
-		}
-
-		log.Printf("RECV:%d,%s", read_len, read_buf[:read_len])
-	}
-}
-
-func pasv_trans_data(ip_port string, file_name string) {
+func pasv_trans_file(ip_port string, file_name string) {
 
 	var file_len int64
+	var data_conn net.Conn
 
 	read_buf := make([]uint8, 4096)
 
@@ -355,7 +342,8 @@ func get_ip_port(recv_buf string) string {
 
 func main() {
 
-	var data_port string
+	//var data_port string
+	var data_conn net.Conn
 
 	data := make([]uint8, 4096)
 	read_buf := make([]uint8, 4096)
@@ -385,17 +373,20 @@ func main() {
 
 	ftpcmd("TYPE I", read_buf, ftp_conn)
 
-	//init_data_port(":4999")
+	//port download
 
-	//ftpcmd("PORT 192,168,1,199,19,135",read_buf,ftp_conn)
+	init_data_port(":50156")
 
-	//data_connect()
+	ftpcmd("PORT 10,80,85,140,195,236", read_buf, ftp_conn)
 
-	//ftpcmd("RETR trace_evt.log",read_buf,ftp_conn)
+	data_conn = data_connect()
 
-	//trans_data("trace_evt.log")
+	ftpcmd("RETR TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", read_buf, ftp_conn)
+
+	port_trans_file("TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", data_conn)
 
 	//NLIST
+	/* list dir
 	ftpcmd("PASV ", read_buf, ftp_conn)
 
 	data_port = get_ip_port(string(read_buf))
@@ -404,17 +395,19 @@ func main() {
 
 	ftpcmd("NLST", read_buf, ftp_conn)
 
-	pasv_trans_data(data_port, "TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi")
+	pasv_trans_file(data_port, "TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi")
+	*/
 
 	//download README.TXT
-	ftpcmd("PASV ", read_buf, ftp_conn)
+	/*
+		ftpcmd("PASV ", read_buf, ftp_conn)
 
-	ftpcmd("RETR jdk-6u13-windows-i586-p.exe", read_buf, ftp_conn)
+		data_port = get_ip_port(string(read_buf))
 
-	data_port = get_ip_port(string(read_buf))
+		ftpcmd("RETR jdk-6u13-windows-i586-p.exe", read_buf, ftp_conn)
 
-	pasv_trans_data(data_port, "jdk-6u13-windows-i586-p.exe")
-
+		pasv_trans_file(data_port, "jdk-6u13-windows-i586-p.exe")
+	*/
 	//ftpcmd("TYPE A",read_buf,ftp_conn)
 
 	//ftpcmd("LIST /",read_buf,ftp_conn)
