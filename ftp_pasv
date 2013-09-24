@@ -10,7 +10,7 @@ import (
 	//"runtime"
 	"os"
 	"strings"
-	//"bufio"
+	"bufio"
 	//"regexp"
 )
 
@@ -51,7 +51,7 @@ var ftp_addr = "10.80.222.35:36"
 type ftp_server struct {
 	ip_port string //"10.80.222.35:36"
 	name    string //"anonymous"
-	passed  string //"kevin@gmail.com"
+	passwd  string //"kevin@gmail.com"
 }
 
 /*
@@ -272,6 +272,73 @@ func write2file(buf []byte, length int, file *os.File) {
 
 }
 
+
+//func get_server_list() ftp_server {
+func main() {
+
+    server_list:=make([]ftp_server,60,200)
+	
+	//var server ftp_server 
+
+				
+    ini_file, err := os.Open("server.ini")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	//defer ini_file.Close()
+	
+	bio_reader:=bufio.NewReader(ini_file)
+	
+    line:=0	
+	//loop read file
+	for {
+		
+		buf,is_prefix,err := bio_reader.ReadLine()
+		
+		if err == io.EOF {
+			log.Printf("read end")
+			break
+		} else if err != nil {
+			log.Fatal(err)
+		}
+		
+		if is_prefix{
+			log.Printf("read is too long")
+			break	
+		}
+		
+		log.Printf("read buf:%s",buf)
+		
+		//fmt.Sscanf(string(buf), "%s %s %s",&server.ip_port, &server.name,&server.passwd)	
+		//fmt.Println("%d  %s  %s  %s",line,server.ip_port,server.name,server.passwd)
+		
+
+				
+		fmt.Sscanf(string(buf), "%s %s %s", &server_list[line].ip_port, &server_list[line].name, &server_list[line].passwd)	
+		log.Println(line,server_list[line].ip_port,server_list[line].name,server_list[line].passwd)
+		
+		line+=1
+		
+		if line >= 200 {
+			log.Printf("line is beyond 200")
+			break	
+		}
+	}
+	
+	/*
+	for i,v:=range server_list{
+		fmt.Println(i,v)
+	}
+	*/
+	
+	
+	return
+
+}
+
+
 func main_logtest() {
 	logfile, err := os.OpenFile("test.log", os.O_RDWR|os.O_CREATE, 0)
 	if err != nil {
@@ -340,7 +407,9 @@ func get_ip_port(recv_buf string) string {
 	return ip_port
 }
 
-func main() {
+
+
+func port_ftp(ftp_server) {
 
 	//var data_port string
 	var data_conn net.Conn
@@ -355,7 +424,7 @@ func main() {
 
 	defer ftp_conn.Close()
 
-	log.Println("Connect Server: " + ftp_addr + " OK")
+	log.Println("Connect Server: " + ftp_server.ip_port + " OK")
 
 	/* need loop for read sock buf */
 	read_len, err := ftp_conn.Read(data[:])
@@ -365,9 +434,9 @@ func main() {
 
 	log.Printf("Server Response:%d,%s", read_len, data[:read_len])
 
-	ftpcmd("USER "+user_name, read_buf, ftp_conn)
+	ftpcmd("USER "+ftp_server.name, read_buf, ftp_conn)
 
-	ftpcmd("PASS "+user_passwd, read_buf, ftp_conn)
+	ftpcmd("PASS "+ftp_server.passwd, read_buf, ftp_conn)
 
 	ftpcmd("SYST ", read_buf, ftp_conn)
 
@@ -412,7 +481,7 @@ func main() {
 
 	//ftpcmd("LIST /",read_buf,ftp_conn)
 	//ftpcmd("PWD ",read_buf,ftp_conn)
-	ftpcmd("XPWD ", read_buf, ftp_conn)
+	//ftpcmd("XPWD ", read_buf, ftp_conn)
 
 	ftpcmd("QUIT", read_buf, ftp_conn)
 }
