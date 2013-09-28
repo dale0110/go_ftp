@@ -11,6 +11,7 @@ import (
 	"bufio"
 	"os"
 	"strings"
+	"math/rand"
 	//"regexp"
 )
 
@@ -66,6 +67,16 @@ var user_name = "anonymous"
 var user_passwd = "kevin@gmail.com"
 var	ftp_addr ="10.80.85.162:21"
 */
+
+
+func get_rand_int(max int) int {
+	seed:=rand.New(rand.NewSource(time.Now().UnixNano()))
+	
+	for i:=0;i<max;i++{
+		log.Println(seed.Intn(max))
+	}
+	return  seed.Intn(max)
+}
 
 func time_test() {
 	t := time.Now()
@@ -280,13 +291,20 @@ func write2file(buf []byte, length int, file *os.File) {
 
 func main() {
 
+	//var wait_ftp Sync.WaitGroup
+	
 	server_list, num := get_server_list()
+	
+	log.Println(num)
+	
+	//wait_ftp.Add(num+1)
 
-	for i := 0; i <= num; i++ {
-		//log.Printf("%s: %s: %s", server_list[i].ip_port, server_list[i].name, server_list[i].passwd)
+	for i := 0; i < num; i++ {
+		log.Printf("%d %s: %s: %s", i,server_list[i].ip_port, server_list[i].name, server_list[i].passwd)
 		go ftp_main(server_list[i])
 	}
 
+	//wait_ftp.Wait()
 	time.Sleep(1e14)
 
 }
@@ -457,21 +475,23 @@ func ftp_main(ftp ftp_server) {
 	ftpcmd("TYPE I", read_buf, ftp.command_conn)
 
 	//port download
-	/*
+	/**/
 		ftp.data_listener, ftp.err = init_data_port(":50156")
 
-		ftpcmd("PORT 10,80,85,149,195,236", read_buf, ftp.command_conn)
+		ftpcmd("PORT 10,80,85,141,195,236", read_buf, ftp.command_conn)
 
 		ftp.data_conn, ftp.err = data_connect(ftp.data_listener)
 
 		ftpcmd("RETR TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", read_buf, ftp.command_conn)
 
 		port_trans_file("TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", ftp.data_conn)
-	*/
+	
+
 
 	//NLIST
 	/* list dir*/
 
+	/*
 	ftpcmd("PASV ", read_buf, ftp.command_conn)
 
 	ftp.data_ip_port = get_ip_port(string(read_buf))
@@ -479,9 +499,11 @@ func ftp_main(ftp ftp_server) {
 	ftpcmd("CWD pub/FreeBSD", read_buf, ftp.command_conn)
 	ftpcmd("NLST", read_buf, ftp.command_conn)
 	pasv_trans_file(ftp, "TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi")
+	*/
 
 	//download README.TXT
-
+	
+	/*
 	ftpcmd("PASV ", read_buf, ftp.command_conn)
 
 	ftp.data_ip_port = get_ip_port(string(read_buf))
@@ -489,6 +511,8 @@ func ftp_main(ftp ftp_server) {
 	ftpcmd("RETR README.TXT", read_buf, ftp.command_conn)
 
 	pasv_trans_file(ftp, "README.TXT")
+    */
+	
 
 	//ftpcmd("TYPE A",read_buf,ftp.command_conn)
 
