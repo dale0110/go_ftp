@@ -12,38 +12,11 @@ import (
 	"os"
 	"strings"
 	"math/rand"
+	"sync"
 	//"regexp"
 )
 
-//var data_conn net.Conn
 
-var data_listener net.Listener
-
-/*
-var user_name = "admin"
-var user_passwd = "zhongxing"
-var	ftp_addr ="192.168.1.5:21"
-*/
-/*
-var user_name = "anonymous"
-var user_passwd = "kevin@gmail.com"
-var ftp_addr = "ftp.freebsd.org:21"
-*/
-/*
-var user_name = "anonymous"
-var user_passwd = "kevin@gmail.com"
-var ftp_addr = "127.0.0.1:21"
-*/
-
-/*
-var user_name = "anonymous"
-var user_passwd = "kevin@gmail.com"
-var	ftp_addr ="10.80.77.151:7021"
-*/
-
-var user_name = "anonymous"
-var user_passwd = "kevin@gmail.com"
-var ftp_addr = "10.80.222.35:36"
 
 type ftp_server struct {
 	ip_port string //"10.80.222.35:36"
@@ -289,23 +262,23 @@ func write2file(buf []byte, length int, file *os.File) {
 
 }
 
-func main() {
+func main_ftp(){
 
-	//var wait_ftp Sync.WaitGroup
+	var wait_ftp sync.WaitGroup
 	
 	server_list, num := get_server_list()
 	
 	log.Println(num)
 	
-	//wait_ftp.Add(num+1)
+	wait_ftp.Add(num+1)
 
 	for i := 0; i < num; i++ {
 		log.Printf("%d %s: %s: %s", i,server_list[i].ip_port, server_list[i].name, server_list[i].passwd)
 		go ftp_main(server_list[i])
 	}
 
-	//wait_ftp.Wait()
-	time.Sleep(1e14)
+	wait_ftp.Wait()
+	//time.Sleep(1e10)
 
 }
 
@@ -373,18 +346,15 @@ func get_server_list() ([]ftp_server, int) {
 
 }
 
-func main_logtest() {
-	logfile, err := os.OpenFile("test.log", os.O_RDWR|os.O_CREATE, 0)
+func log_init() {
+	logfile, err := os.OpenFile("ftp.log", os.O_RDWR|os.O_CREATE, 0)
 	if err != nil {
 		fmt.Printf("%s\r\n", err.Error())
 		os.Exit(-1)
 	}
 	defer logfile.Close()
 	logger := log.New(logfile, "\r\n", log.Ldate|log.Ltime|log.Llongfile)
-	logger.Println("hello")
-	logger.Println("oh....")
-	logger.Fatal("test")
-	logger.Fatal("test2")
+	
 }
 
 /*get the data ip and port from the recv buf*/
@@ -521,4 +491,6 @@ func ftp_main(ftp ftp_server) {
 	//ftpcmd("XPWD ", read_buf, ftp.command_conn)
 
 	ftpcmd("QUIT", read_buf, ftp.command_conn)
+	
+	return 
 }
