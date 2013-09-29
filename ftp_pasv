@@ -9,14 +9,12 @@ import (
 	"time"
 	//"runtime"
 	"bufio"
+	"math/rand"
 	"os"
 	"strings"
-	"math/rand"
 	"sync"
 	//"regexp"
 )
-
-
 
 type ftp_server struct {
 	ip_port string //"10.80.222.35:36"
@@ -41,14 +39,13 @@ var user_passwd = "kevin@gmail.com"
 var	ftp_addr ="10.80.85.162:21"
 */
 
-
 func get_rand_int(max int) int {
-	seed:=rand.New(rand.NewSource(time.Now().UnixNano()))
-	
-	for i:=0;i<max;i++{
-		log.Println(seed.Intn(max))
+	seed := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	for i := 0; i < max; i++ {
+		logger.Println(seed.Intn(max))
 	}
-	return  seed.Intn(max)
+	return seed.Intn(max)
 }
 
 func time_test() {
@@ -76,10 +73,10 @@ func ftpcmd_noblocked(cmd string, result []uint8, sock net.Conn) {
 	//sock.SetDeadline(time.Now().Add(1000 * time.Millisecond))
 	send_len, err := sock.Write(send_buf)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
-	log.Printf("send:%d,%s", send_len, send_buf[:])
+	logger.Printf("send:%d,%s", send_len, send_buf[:])
 
 	//loop read the result of cmd
 	for {
@@ -87,23 +84,23 @@ func ftpcmd_noblocked(cmd string, result []uint8, sock net.Conn) {
 		if err != nil {
 			/*
 				if err.Timeout() {
-					log.Printf("RECV time out")
+					logger.Printf("RECV time out")
 					break
 				}
 			*/
-			log.Printf("read error")
-			//log.Fatal(err)
+			logger.Printf("read error")
+			//logger.Fatal(err)
 			break
 		}
 		if read_len == 0 {
-			log.Printf("read len is 0")
+			logger.Printf("read len is 0")
 			break
 		}
-		log.Printf("RECV:read_len %d,%s", read_len, result[buf_len:read_len])
+		logger.Printf("RECV:read_len %d,%s", read_len, result[buf_len:read_len])
 		buf_len += read_len
 	}
-	//log.Printf("RECV:%d,%q",read_len,result[:])
-	log.Printf("RECV:%d,%s", buf_len, result[:buf_len])
+	//logger.Printf("RECV:%d,%q",read_len,result[:])
+	logger.Printf("RECV:%d,%s", buf_len, result[:buf_len])
 }
 
 func ftpcmd(cmd string, result []uint8, sock net.Conn) {
@@ -115,30 +112,30 @@ func ftpcmd(cmd string, result []uint8, sock net.Conn) {
 
 	send_len, err := sock.Write(send_buf)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
-	log.Printf("send:%d,%s", send_len, send_buf[:])
+	logger.Printf("send:%d,%s", send_len, send_buf[:])
 
 	//loop read the result of cmd
 	read_len, err := sock.Read(result[buf_len:])
 	if err != nil {
-		log.Printf("read error")
+		logger.Printf("read error")
 	}
 	if read_len == 0 {
-		log.Printf("read len is 0")
+		logger.Printf("read len is 0")
 	}
 	buf_len += read_len
-	log.Printf("RECV:%d,%s", buf_len, result[:buf_len])
+	logger.Printf("RECV:%d,%s", buf_len, result[:buf_len])
 }
 
 func init_data_port(data_port string) (net.Listener, error) {
 
 	data_listener, err := net.Listen("tcp", data_port)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
-	log.Printf(" data port listen OK")
+	logger.Printf(" data port listen OK")
 
 	return data_listener, err
 }
@@ -147,9 +144,9 @@ func data_connect(data_listener net.Listener) (net.Conn, error) {
 
 	data_conn, err := data_listener.Accept()
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
-	log.Printf("data connect OK")
+	logger.Printf("data connect OK")
 
 	return data_conn, err
 }
@@ -170,7 +167,7 @@ func trans_file(file_name string, data_conn net.Conn) {
 	write_file, write_err := os.OpenFile(file_name, os.O_WRONLY|os.O_CREATE, 0666)
 
 	if write_err != nil {
-		log.Fatal(write_err)
+		logger.Fatal(write_err)
 	}
 
 	defer data_conn.Close()
@@ -180,20 +177,20 @@ func trans_file(file_name string, data_conn net.Conn) {
 	for {
 		read_len, err := data_conn.Read(read_buf[:])
 		if err == io.EOF {
-			//log.Printf("RECV end")
+			//logger.Printf("RECV end")
 			break
 		} else if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
-		//log.Printf("RECV:%d,%s", read_len, read_buf[:read_len])
+		//logger.Printf("RECV:%d,%s", read_len, read_buf[:read_len])
 		write2file(read_buf, read_len, write_file)
 		file_len += int64(read_len)
 
-		//log.Printf("recv write:%d", read_len)
+		//logger.Printf("recv write:%d", read_len)
 	}
 
-	log.Printf("download :%s :%d", file_name, file_len)
+	logger.Printf("download :%s :%d", file_name, file_len)
 
 	return
 }
@@ -206,7 +203,7 @@ func pasv_trans_file(ftp ftp_server, file_name string) {
 
 	ftp.data_conn, ftp.err = net.Dial("tcp", ftp.data_ip_port)
 	if ftp.err != nil {
-		log.Fatal(ftp.err)
+		logger.Fatal(ftp.err)
 	}
 
 	//data_conn.SetDeadline(time.Now().Add(1000 * time.Millisecond))
@@ -216,7 +213,7 @@ func pasv_trans_file(ftp ftp_server, file_name string) {
 	write_file, write_err := os.OpenFile(file_name, os.O_WRONLY|os.O_CREATE, 0666)
 
 	if write_err != nil {
-		log.Fatal(write_err)
+		logger.Fatal(write_err)
 	}
 
 	defer write_file.Close()
@@ -225,20 +222,20 @@ func pasv_trans_file(ftp ftp_server, file_name string) {
 	for {
 		read_len, err := ftp.data_conn.Read(read_buf[:])
 		if err == io.EOF {
-			//log.Printf("RECV end")
+			//logger.Printf("RECV end")
 			break
 		} else if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
-		//log.Printf("RECV:%d,%s", read_len, read_buf[:read_len])
+		//logger.Printf("RECV:%d,%s", read_len, read_buf[:read_len])
 		write2file(read_buf, read_len, write_file)
 		file_len += int64(read_len)
 
-		//log.Printf("recv :%d write:%d", read_len, start)
+		//logger.Printf("recv :%d write:%d", read_len, start)
 	}
 
-	log.Printf("download :%s :%d", file_name, file_len)
+	logger.Printf("download :%s :%d", file_name, file_len)
 
 	return
 }
@@ -250,7 +247,7 @@ func write2file(buf []byte, length int, file *os.File) {
 		write_len, write_err := file.Write(buf[start:length])
 
 		if write_err != nil {
-			log.Fatal(write_err)
+			logger.Fatal(write_err)
 		}
 
 		start += write_len
@@ -262,18 +259,25 @@ func write2file(buf []byte, length int, file *os.File) {
 
 }
 
-func main_ftp(){
+var logger *log.Logger
+var logfile *os.File
+
+func main() {
 
 	var wait_ftp sync.WaitGroup
-	
+
+	logger, logfile = log_init()
+
+	defer logfile.Close()
+
 	server_list, num := get_server_list()
-	
-	log.Println(num)
-	
-	wait_ftp.Add(num+1)
+
+	logger.Println(num)
+
+	wait_ftp.Add(num + 1)
 
 	for i := 0; i < num; i++ {
-		log.Printf("%d %s: %s: %s", i,server_list[i].ip_port, server_list[i].name, server_list[i].passwd)
+		logger.Printf("%d %s: %s: %s", i, server_list[i].ip_port, server_list[i].name, server_list[i].passwd)
 		go ftp_main(server_list[i])
 	}
 
@@ -291,7 +295,7 @@ func get_server_list() ([]ftp_server, int) {
 	ini_file, err := os.Open("server.ini")
 
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	//defer ini_file.Close()
@@ -305,33 +309,33 @@ func get_server_list() ([]ftp_server, int) {
 		buf, is_prefix, err := bio_reader.ReadLine()
 
 		if err == io.EOF {
-			//log.Printf("read end")
+			//logger.Printf("read end")
 			break
 		} else if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
 		if is_prefix {
-			log.Printf("read is too long")
+			logger.Printf("read is too long")
 			break
 		}
 
-		//log.Printf("read buf:%s",buf)
+		//logger.Printf("read buf:%s",buf)
 
 		//'#' is the sybol of coment,skip the comment
 		if buf[0] == '#' {
-			//log.Printf("skip this line")
+			//logger.Printf("skip this line")
 			continue
 		}
 
 		fmt.Sscanf(string(buf), "%s %s %s", &server_list[line].ip_port, &server_list[line].name, &server_list[line].passwd)
 		server_list[line].local_port = 50000 + line
-		log.Println(line, server_list[line].ip_port, server_list[line].name, server_list[line].passwd)
+		logger.Println(line, server_list[line].ip_port, server_list[line].name, server_list[line].passwd)
 
 		line += 1
 
 		if line >= 200 {
-			log.Printf("line is beyond 200")
+			logger.Printf("line is beyond 200")
 			break
 		}
 	}
@@ -346,15 +350,15 @@ func get_server_list() ([]ftp_server, int) {
 
 }
 
-func log_init() {
-	logfile, err := os.OpenFile("ftp.log", os.O_RDWR|os.O_CREATE, 0)
+func log_init() (*log.Logger, *os.File) {
+	logfile, err := os.OpenFile("ftp.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0)
 	if err != nil {
 		fmt.Printf("%s\r\n", err.Error())
 		os.Exit(-1)
 	}
-	defer logfile.Close()
-	logger := log.New(logfile, "\r\n", log.Ldate|log.Ltime|log.Llongfile)
-	
+	logger = log.New(logfile, "\r\n", log.Ldate|log.Lmicroseconds|log.Lshortfile)
+	return logger, logfile
+
 }
 
 /*get the data ip and port from the recv buf*/
@@ -365,11 +369,11 @@ func get_ip_port_v1(recv_buf []uint8) string {
 
 	//raw_buf:=recv_buf[27:]
 
-	//log.Printf("raw_buf:%s",raw_buf)
+	//logger.Printf("raw_buf:%s",raw_buf)
 
 	/*
 	   ip_buf:=strings.Split(string(raw_buf),",")
-	   log.Printf("ip_buf:%s %s %s %s %s %s",ip_buf[0],ip_buf[1],ip_buf[2],ip_buf[3],ip_buf[4],ip_buf[5])
+	   logger.Printf("ip_buf:%s %s %s %s %s %s",ip_buf[0],ip_buf[1],ip_buf[2],ip_buf[3],ip_buf[4],ip_buf[5])
 	*/
 
 	/*227 Entering Passive Mode (10,80,222,35,216,4).*/
@@ -380,13 +384,13 @@ func get_ip_port_v1(recv_buf []uint8) string {
 	//port_high,_=strconv.Atoi(ip_buf[4])
 	//port_low,_=strconv.Atoi(ip_buf[5])
 
-	log.Printf("ip:%d %d %d %d port_high:%d port_low:%d", ip[0], ip[1], ip[2], ip[3], port_high, port_low)
+	logger.Printf("ip:%d %d %d %d port_high:%d port_low:%d", ip[0], ip[1], ip[2], ip[3], port_high, port_low)
 
 	port := port_high*256 + port_low
-	log.Printf("port:%d", port)
+	logger.Printf("port:%d", port)
 
 	ip_port := strconv.Itoa(ip[0]) + "." + strconv.Itoa(ip[1]) + "." + strconv.Itoa(ip[2]) + "." + strconv.Itoa(ip[3]) + ":" + strconv.Itoa(port)
-	log.Printf("ip_port:%s", ip_port)
+	logger.Printf("ip_port:%s", ip_port)
 	return ip_port
 }
 
@@ -395,19 +399,19 @@ func get_ip_port(recv_buf string) string {
 	var port [2]int
 	var ip [4]int
 
-	//log.Printf("recv_buf:%s",recv_buf)
+	//logger.Printf("recv_buf:%s",recv_buf)
 
 	ip_buf1 := strings.Split(recv_buf, ")")
 	ip_buf2 := strings.Split(ip_buf1[0], "(")
 	//fmt.Printf("%v\n",ip_buf2)
-	//log.Printf("ip_buf2[1]:%s",ip_buf2[1])
+	//logger.Printf("ip_buf2[1]:%s",ip_buf2[1])
 
 	/*227 Entering Passive Mode (10,80,222,35,216,4).*/
 	fmt.Sscanf(ip_buf2[1], "%d,%d,%d,%d,%d,%d", &ip[0], &ip[1], &ip[2], &ip[3], &port[0], &port[1])
 
 	//fmt.Sprintf(ip_port,"%d.%d.%d.%d:%d",ip[0],ip[1],ip[2],ip[3],port[0]*0XFF+port[1])
 	ip_port := strconv.Itoa(ip[0]) + "." + strconv.Itoa(ip[1]) + "." + strconv.Itoa(ip[2]) + "." + strconv.Itoa(ip[3]) + ":" + strconv.Itoa(port[0]*256+port[1])
-	log.Printf("ip port:%s", ip_port)
+	logger.Printf("ip port:%s", ip_port)
 	return ip_port
 }
 
@@ -416,25 +420,25 @@ func ftp_main(ftp ftp_server) {
 	data := make([]uint8, 4096)
 	read_buf := make([]uint8, 4096)
 
-	//log.Println("Start Connect Server")
-	log.Println(ftp.ip_port)
+	//logger.Println("Start Connect Server")
+	logger.Println(ftp.ip_port)
 
 	ftp.command_conn, ftp.err = net.Dial("tcp", ftp.ip_port)
 	if ftp.err != nil {
-		log.Fatal(ftp.err)
+		logger.Fatal(ftp.err)
 	}
 
 	defer ftp.command_conn.Close()
 
-	log.Println("Connect Server: " + ftp.ip_port + " OK")
+	logger.Println("Connect Server: " + ftp.ip_port + " OK")
 
 	/* need loop for read sock buf */
 	read_len, err := ftp.command_conn.Read(data[:])
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
-	log.Printf("Server Response:%d,%s", read_len, data[:read_len])
+	logger.Printf("Server Response:%d,%s", read_len, data[:read_len])
 
 	ftpcmd("USER "+ftp.name, read_buf, ftp.command_conn)
 
@@ -446,43 +450,40 @@ func ftp_main(ftp ftp_server) {
 
 	//port download
 	/**/
-		ftp.data_listener, ftp.err = init_data_port(":50156")
+	ftp.data_listener, ftp.err = init_data_port(":50156")
 
-		ftpcmd("PORT 10,80,85,141,195,236", read_buf, ftp.command_conn)
+	ftpcmd("PORT 10,80,85,159,195,236", read_buf, ftp.command_conn)
 
-		ftp.data_conn, ftp.err = data_connect(ftp.data_listener)
+	ftp.data_conn, ftp.err = data_connect(ftp.data_listener)
 
-		ftpcmd("RETR TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", read_buf, ftp.command_conn)
+	ftpcmd("RETR TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", read_buf, ftp.command_conn)
 
-		port_trans_file("TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", ftp.data_conn)
-	
-
+	port_trans_file("TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", ftp.data_conn)
 
 	//NLIST
 	/* list dir*/
 
 	/*
-	ftpcmd("PASV ", read_buf, ftp.command_conn)
+		ftpcmd("PASV ", read_buf, ftp.command_conn)
 
-	ftp.data_ip_port = get_ip_port(string(read_buf))
+		ftp.data_ip_port = get_ip_port(string(read_buf))
 
-	ftpcmd("CWD pub/FreeBSD", read_buf, ftp.command_conn)
-	ftpcmd("NLST", read_buf, ftp.command_conn)
-	pasv_trans_file(ftp, "TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi")
+		ftpcmd("CWD pub/FreeBSD", read_buf, ftp.command_conn)
+		ftpcmd("NLST", read_buf, ftp.command_conn)
+		pasv_trans_file(ftp, "TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi")
 	*/
 
 	//download README.TXT
-	
+
 	/*
-	ftpcmd("PASV ", read_buf, ftp.command_conn)
+		ftpcmd("PASV ", read_buf, ftp.command_conn)
 
-	ftp.data_ip_port = get_ip_port(string(read_buf))
+		ftp.data_ip_port = get_ip_port(string(read_buf))
 
-	ftpcmd("RETR README.TXT", read_buf, ftp.command_conn)
+		ftpcmd("RETR README.TXT", read_buf, ftp.command_conn)
 
-	pasv_trans_file(ftp, "README.TXT")
-    */
-	
+		pasv_trans_file(ftp, "README.TXT")
+	*/
 
 	//ftpcmd("TYPE A",read_buf,ftp.command_conn)
 
@@ -491,6 +492,6 @@ func ftp_main(ftp ftp_server) {
 	//ftpcmd("XPWD ", read_buf, ftp.command_conn)
 
 	ftpcmd("QUIT", read_buf, ftp.command_conn)
-	
-	return 
+
+	return
 }
