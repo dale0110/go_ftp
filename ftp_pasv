@@ -23,6 +23,7 @@ type ftp_server struct {
 
 	command_conn net.Conn //command connect
 	err          error    //last status
+	cmd_recv_len int
 
 	//the follow is for port mode
 	local_port    int          //port for port mode,use array index
@@ -151,9 +152,42 @@ func data_connect(data_listener net.Listener) (net.Conn, error) {
 	return data_conn, err
 }
 
-func port_trans_file(file_name string, data_conn net.Conn) {
+func port_trans_file(file_name string, ftp ftp_server) {
 
-	trans_file(file_name, data_conn)
+	read_buf := make([]uint8, 4096)
+
+	ftp.data_listener, ftp.err = init_data_port(":" + strconv.Itoa(ftp.local_port))
+	defer ftp.data_listener.Close()
+
+	ftp.local_port++
+
+	//ftp.command_conn.LocalAddr()==10.80.85.159:63863
+	ip := "10.80.85.159"
+	//ip := strings.Split(ftp.command_conn.LocalAddr().String(), ":")
+	//replace the . with ,
+	ip = strings.Replace(ip, ".", ",", -1)
+
+	port := "," + strconv.Itoa(ftp.local_port>>8) + "," + strconv.Itoa(ftp.local_port&0X00ff)
+
+	ftpcmd("PORT "+ip+port, read_buf, ftp.command_conn)
+
+	//accept data connct
+	ftp.data_conn, ftp.err = data_connect(ftp.data_listener)
+
+	//download file
+	ftpcmd("RETR "+file_name, read_buf, ftp.command_conn)
+
+	trans_file(file_name, ftp.data_conn)
+
+	//recv cmd result
+	cmd_recv_len, err := ftp.command_conn.Read(read_buf[:])
+	if err != nil {
+		logger.Printf("read error")
+	}
+
+	logger.Printf("RECV:%d,%s", cmd_recv_len, read_buf[:cmd_recv_len])
+
+	return
 }
 
 func trans_file(file_name string, data_conn net.Conn) {
@@ -329,13 +363,13 @@ func get_server_list() ([]ftp_server, int) {
 		}
 
 		fmt.Sscanf(string(buf), "%s %s %s", &server_list[line].ip_port, &server_list[line].name, &server_list[line].passwd)
-		server_list[line].local_port = 50000 + line
+		server_list[line].local_port = 50000 + line*1000
 		logger.Println(line, server_list[line].ip_port, server_list[line].name, server_list[line].passwd)
 
 		line += 1
 
 		if line >= 200 {
-			logger.Printf("line is beyond 200")
+			logger.Fatal("line is beyond 200")
 			break
 		}
 	}
@@ -420,9 +454,6 @@ func ftp_main(ftp ftp_server) {
 	data := make([]uint8, 4096)
 	read_buf := make([]uint8, 4096)
 
-	//logger.Println("Start Connect Server")
-	logger.Println(ftp.ip_port)
-
 	ftp.command_conn, ftp.err = net.Dial("tcp", ftp.ip_port)
 	if ftp.err != nil {
 		logger.Fatal(ftp.err)
@@ -449,16 +480,16 @@ func ftp_main(ftp ftp_server) {
 	ftpcmd("TYPE I", read_buf, ftp.command_conn)
 
 	//port download
-	/**/
-	ftp.data_listener, ftp.err = init_data_port(":50156")
 
-	ftpcmd("PORT 10,80,85,159,195,236", read_buf, ftp.command_conn)
+	//download jdk-6u13-windows-i586-p.exe
 
-	ftp.data_conn, ftp.err = data_connect(ftp.data_listener)
+	port_trans_file("TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", ftp)
 
-	ftpcmd("RETR TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", read_buf, ftp.command_conn)
+	ftp.data_listener, ftp.err = init_data_port(":50157")
 
-	port_trans_file("TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", ftp.data_conn)
+	ftpcmd("PORT 10,80,85,159,195,237", read_buf, ftp.command_conn)
+
+	port_trans_file("jdk-6u13-windows-i586-p.exe", ftp)
 
 	//NLIST
 	/* list dir*/
