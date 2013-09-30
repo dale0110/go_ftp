@@ -23,7 +23,6 @@ type ftp_server struct {
 
 	command_conn net.Conn //command connect
 	err          error    //last status
-	cmd_recv_len int
 
 	//the follow is for port mode
 	local_port    int          //port for port mode,use array index
@@ -32,6 +31,10 @@ type ftp_server struct {
 
 	//the follow is for pasv mode
 	data_ip_port string
+}
+
+type file_list struct {
+	name string //
 }
 
 /*
@@ -63,7 +66,7 @@ func isTimeout(err error) bool {
 }
 */
 
-func ftpcmd(cmd string, result []uint8, sock net.Conn) {
+func ftpcmd_unblocked(cmd string, result []uint8, sock net.Conn) {
 
 	//send cmd
 	cmd += "\r\n"
@@ -104,7 +107,7 @@ func ftpcmd(cmd string, result []uint8, sock net.Conn) {
 	logger.Printf("RECV:%d,%s", buf_len, result[:buf_len])
 }
 
-func ftpcmd_blocked(cmd string, result []uint8, sock net.Conn) {
+func ftpcmd(cmd string, result []uint8, sock net.Conn) {
 
 	//send cmd
 	cmd += "\r\n"
@@ -152,14 +155,14 @@ func data_connect(data_listener net.Listener) (net.Conn, error) {
 	return data_conn, err
 }
 
-func port_trans_file(file_name string, ftp ftp_server) {
+func port_trans_file(file_name string, ftp *ftp_server) {
 
 	read_buf := make([]uint8, 4096)
 
+	//ftp := *cur_ftp
+
 	ftp.data_listener, ftp.err = init_data_port(":" + strconv.Itoa(ftp.local_port))
 	defer ftp.data_listener.Close()
-
-	ftp.local_port++
 
 	//ftp.command_conn.LocalAddr()==10.80.85.159:63863
 	ip := strings.Split(ftp.command_conn.LocalAddr().String(), ":")
@@ -186,6 +189,8 @@ func port_trans_file(file_name string, ftp ftp_server) {
 	}
 
 	logger.Printf("RECV:%d,%s", cmd_recv_len, read_buf[:cmd_recv_len])
+
+	ftp.local_port++
 
 	return
 }
@@ -311,7 +316,8 @@ func main() {
 	wait_ftp.Add(num + 1)
 
 	for i := 0; i < num; i++ {
-		logger.Printf("%d %s: %s: %s", i, server_list[i].ip_port, server_list[i].name, server_list[i].passwd)
+		//logger.Print("%d %s: %s: %s", i, server_list[i].ip_port, server_list[i].name, server_list[i].passwd)
+		logger.Println(server_list[i])
 		go ftp_main(server_list[i])
 	}
 
@@ -324,9 +330,69 @@ func get_server_list() ([]ftp_server, int) {
 
 	server_list := make([]ftp_server, 60, 200)
 
-	//var server ftp_server
-
 	ini_file, err := os.Open("server.ini")
+
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	//defer ini_file.Close()
+
+	bio_reader := bufio.NewReader(ini_file)
+
+	line := 0
+	//loop read file
+	for {
+
+		buf, is_prefix, err := bio_reader.ReadLine()
+
+		if err == io.EOF {
+			//logger.Printf("read end")
+			break
+		} else if err != nil {
+			logger.Fatal(err)
+		}
+
+		if is_prefix {
+			logger.Printf("read is too long")
+			break
+		}
+
+		//logger.Printf("read buf:%s",buf)
+
+		//'#' is the sybol of coment,skip the comment
+		if buf[0] == '#' {
+			//logger.Printf("skip this line")
+			continue
+		}
+
+		fmt.Sscanf(string(buf), "%s %s %s", &server_list[line].ip_port, &server_list[line].name, &server_list[line].passwd)
+		server_list[line].local_port = 50000 + line*1000
+		logger.Println(line, server_list[line].ip_port, server_list[line].name, server_list[line].passwd)
+
+		line += 1
+
+		if line >= 200 {
+			logger.Fatal("line is beyond 200")
+			break
+		}
+	}
+
+	/*
+		for i,v:=range server_list{
+			fmt.Println(i,v)
+		}
+	*/
+
+	return server_list, line
+
+}
+
+func get_file_list() ([]ftp_server, int) {
+
+	server_list := make([]ftp_server, 60, 200)
+
+	ini_file, err := os.Open("file.ini")
 
 	if err != nil {
 		logger.Fatal(err)
@@ -483,29 +549,34 @@ func ftp_main(ftp ftp_server) {
 
 	//download jdk-6u13-windows-i586-p.exe
 
-	//port_trans_file("jdk-6u13-windows-i586-p.exe", ftp)
+	port_trans_file("jdk-6u13-windows-i586-p.exe", &ftp)
+	port_trans_file("TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", &ftp)
 
 	//NLIST
 	/* list dir*/
 
-	/**/
-	ftpcmd("PASV", read_buf, ftp.command_conn)
+	/*
+		ftpcmd("PASV", read_buf, ftp.command_conn)
 
-	ftp.data_ip_port = get_ip_port(string(read_buf))
+		ftp.data_ip_port = get_ip_port(string(read_buf))
 
-	ftpcmd("CWD /pub/FreeBSD", read_buf, ftp.command_conn)
-	//ftpcmd("NLST", read_buf, ftp.command_conn)
-	//pasv_trans_file(ftp, "TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi")
+		ftpcmd("CWD /pub/FreeBSD", read_buf, ftp.command_conn)
+		ftpcmd("NLST", read_buf, ftp.command_conn)
+		pasv_trans_file(ftp, "TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi")
+
+	*/
 	//download README.TXT
 
-	/**/
-	ftpcmd("PASV", read_buf, ftp.command_conn)
+	/*
+		ftpcmd("PASV", read_buf, ftp.command_conn)
 
-	ftp.data_ip_port = get_ip_port(string(read_buf))
+		ftp.data_ip_port = get_ip_port(string(read_buf))
 
-	ftpcmd("RETR README.TXT", read_buf, ftp.command_conn)
+		ftpcmd("RETR README.TXT", read_buf, ftp.command_conn)
 
-	pasv_trans_file(ftp, "README.TXT")
+		pasv_trans_file(ftp, "README.TXT")
+
+	*/
 
 	//ftpcmd("TYPE A",read_buf,ftp.command_conn)
 
