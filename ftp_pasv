@@ -295,7 +295,9 @@ func write2file(buf []byte, length int, file *os.File) {
 
 var logger *log.Logger
 var logfile *os.File
+
 var file_list []file
+var file_num int
 
 func main() {
 
@@ -307,7 +309,9 @@ func main() {
 
 	server_list, num := get_server_list()
 
-	file_list = get_file_list()
+	file_list, file_num = get_file_list()
+
+	fmt.Println(len(file_list))
 
 	logger.Println(num)
 
@@ -386,8 +390,7 @@ func get_server_list() ([]ftp_server, int) {
 
 }
 
-func get_file_list() []file {
-
+func get_file_list() ([]file, int) {
 	file_list := make([]file, 60, 2000)
 
 	ini_file, err := os.Open("file.ini")
@@ -418,8 +421,6 @@ func get_file_list() []file {
 			break
 		}
 
-		fmt.Printf("read buf:%s\n", buf)
-
 		//'#' is the sybol of coment,skip the comment
 		if buf[0] == '#' {
 			//logger.Printf("skip this line")
@@ -430,6 +431,8 @@ func get_file_list() []file {
 		file_list[line].path = string(buf[0:num])
 		file_list[line].name = string(buf[num+1:])
 
+		logger.Printf(":%s \t:%s\n", file_list[line].path, file_list[line].name)
+
 		line++
 
 	}
@@ -439,7 +442,8 @@ func get_file_list() []file {
 			fmt.Println(i, v)
 		}
 	*/
-	return file_list
+
+	return file_list, line
 
 }
 
@@ -538,7 +542,7 @@ func ftp_main(ftp ftp_server) {
 
 	ftpcmd("TYPE I", read_buf, ftp.command_conn)
 
-	ftpcmd("CWD /book/Linux-Unix/", read_buf, ftp.command_conn)
+	//ftpcmd("CWD /book/Linux-Unix/", read_buf, ftp.command_conn)
 
 	//port download
 	for i := 0; i < len(file_list); i++ {
