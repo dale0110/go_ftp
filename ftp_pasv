@@ -143,6 +143,7 @@ func data_connect(data_listener net.Listener) (net.Conn, error) {
 	return data_conn, err
 }
 
+//download file by port mode
 func port_trans_file(file_name string, ftp *ftp_server) {
 
 	read_buf := make([]uint8, 4096)
@@ -294,8 +295,9 @@ func write2file(buf []byte, length int, file *os.File) {
 
 var logger *log.Logger
 var logfile *os.File
+var file_list []file
 
-func main_test() {
+func main() {
 
 	var wait_ftp sync.WaitGroup
 
@@ -304,6 +306,8 @@ func main_test() {
 	defer logfile.Close()
 
 	server_list, num := get_server_list()
+
+	file_list = get_file_list()
 
 	logger.Println(num)
 
@@ -382,7 +386,7 @@ func get_server_list() ([]ftp_server, int) {
 
 }
 
-func get_file_list() {
+func get_file_list() []file {
 
 	file_list := make([]file, 60, 2000)
 
@@ -435,7 +439,7 @@ func get_file_list() {
 			fmt.Println(i, v)
 		}
 	*/
-	return
+	return file_list
 
 }
 
@@ -534,10 +538,14 @@ func ftp_main(ftp ftp_server) {
 
 	ftpcmd("TYPE I", read_buf, ftp.command_conn)
 
-	//port download
+	ftpcmd("CWD /book/Linux-Unix/", read_buf, ftp.command_conn)
 
-	port_trans_file("jdk-6u13-windows-i586-p.exe", &ftp)
-	port_trans_file("TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", &ftp)
+	//port download
+	for i := 0; i < len(file_list); i++ {
+
+		ftpcmd("CWD "+file_list[i].path, read_buf, ftp.command_conn)
+		port_trans_file(file_list[i].name, &ftp)
+	}
 
 	//NLIST
 	/* list dir*/
