@@ -33,15 +33,10 @@ type ftp_server struct {
 	data_ip_port string
 }
 
-type file_list struct {
-	name string //
+type file struct {
+	path string
+	name string
 }
-
-/*
-var user_name = "anonymous"
-var user_passwd = "kevin@gmail.com"
-var	ftp_addr ="10.80.85.162:21"
-*/
 
 func get_rand_int(max int) int {
 	seed := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -58,13 +53,6 @@ func time_test() {
 	fmt.Println(t)
 	fmt.Println("%d\n", t.Year())
 }
-
-/*
-func isTimeout(err error) bool {
-	e, ok := err.(error)
-	return ok && e.Timeout()
-}
-*/
 
 func ftpcmd_unblocked(cmd string, result []uint8, sock net.Conn) {
 
@@ -201,6 +189,8 @@ func trans_file(file_name string, data_conn net.Conn) {
 
 	read_buf := make([]uint8, 4096)
 
+	start := time.Now()
+
 	//data_conn.SetDeadline(time.Now().Add(1000 * time.Millisecond))
 
 	write_file, write_err := os.OpenFile(file_name, os.O_WRONLY|os.O_CREATE, 0666)
@@ -229,7 +219,11 @@ func trans_file(file_name string, data_conn net.Conn) {
 		//logger.Printf("recv write:%d", read_len)
 	}
 
-	logger.Printf("download :%s :%d", file_name, file_len)
+	end := time.Now()
+
+	//d, _ := time.ParseDuration("-24h")
+	//fmt.Println(k.Add(d))
+	logger.Printf("download :%s :%d %s", file_name, file_len, end.Sub(start))
 
 	return
 }
@@ -301,7 +295,7 @@ func write2file(buf []byte, length int, file *os.File) {
 var logger *log.Logger
 var logfile *os.File
 
-func main() {
+func main_test() {
 
 	var wait_ftp sync.WaitGroup
 
@@ -336,7 +330,7 @@ func get_server_list() ([]ftp_server, int) {
 		logger.Fatal(err)
 	}
 
-	//defer ini_file.Close()
+	defer ini_file.Close()
 
 	bio_reader := bufio.NewReader(ini_file)
 
@@ -388,9 +382,9 @@ func get_server_list() ([]ftp_server, int) {
 
 }
 
-func get_file_list() ([]ftp_server, int) {
+func get_file_list() {
 
-	server_list := make([]ftp_server, 60, 200)
+	file_list := make([]file, 60, 2000)
 
 	ini_file, err := os.Open("file.ini")
 
@@ -420,33 +414,28 @@ func get_file_list() ([]ftp_server, int) {
 			break
 		}
 
-		//logger.Printf("read buf:%s",buf)
+		fmt.Printf("read buf:%s\n", buf)
 
 		//'#' is the sybol of coment,skip the comment
 		if buf[0] == '#' {
 			//logger.Printf("skip this line")
 			continue
 		}
+		//分割文件名和路径名
+		num := strings.LastIndex(string(buf), "/")
+		file_list[line].path = string(buf[0:num])
+		file_list[line].name = string(buf[num+1:])
 
-		fmt.Sscanf(string(buf), "%s %s %s", &server_list[line].ip_port, &server_list[line].name, &server_list[line].passwd)
-		server_list[line].local_port = 50000 + line*1000
-		logger.Println(line, server_list[line].ip_port, server_list[line].name, server_list[line].passwd)
+		line++
 
-		line += 1
-
-		if line >= 200 {
-			logger.Fatal("line is beyond 200")
-			break
-		}
 	}
 
 	/*
-		for i,v:=range server_list{
-			fmt.Println(i,v)
+		for i, v := range file_list {
+			fmt.Println(i, v)
 		}
 	*/
-
-	return server_list, line
+	return
 
 }
 
@@ -546,8 +535,6 @@ func ftp_main(ftp ftp_server) {
 	ftpcmd("TYPE I", read_buf, ftp.command_conn)
 
 	//port download
-
-	//download jdk-6u13-windows-i586-p.exe
 
 	port_trans_file("jdk-6u13-windows-i586-p.exe", &ftp)
 	port_trans_file("TortoiseSVN-1.7.6.22632-win32-svn-1.7.4.msi", &ftp)
