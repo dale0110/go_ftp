@@ -311,7 +311,7 @@ func main() {
 
 	file_list, file_num = get_file_list()
 
-	fmt.Println(len(file_list))
+	//fmt.Println(len(file_list))
 
 	logger.Println(num)
 
@@ -545,7 +545,7 @@ func ftp_main(ftp ftp_server) {
 	//ftpcmd("CWD /book/Linux-Unix/", read_buf, ftp.command_conn)
 
 	//port download
-	for i := 0; i < len(file_list); i++ {
+	for i := 0; i < file_num; i++ {
 
 		ftpcmd("CWD "+file_list[i].path, read_buf, ftp.command_conn)
 		port_trans_file(file_list[i].name, &ftp)
