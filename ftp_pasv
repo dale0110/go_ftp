@@ -16,6 +16,12 @@ import (
 	//"regexp"
 )
 
+const (
+	BUF_SIZE   = 4 * 1024
+	SERVER_MAX = 200
+	FILE_MAX   = 2000
+)
+
 type ftp_server struct {
 	ip     string //"10.80.222.35""
 	port   string //"36"
@@ -174,7 +180,7 @@ func data_connect(data_listener net.Listener) (net.Conn, error) {
 //download file by port mode
 func port_trans_file(file_name string, ftp *ftp_server) {
 
-	read_buf := make([]uint8, 4096)
+	read_buf := make([]uint8, BUF_SIZE)
 
 	ftp.data_listener, ftp.err = init_data_port(":" + strconv.Itoa(ftp.local_port))
 	defer ftp.data_listener.Close()
@@ -222,7 +228,7 @@ func trans_file(file_name string, data_conn net.Conn) {
 
 	var file_len int64
 
-	read_buf := make([]uint8, 4096)
+	read_buf := make([]uint8, BUF_SIZE)
 
 	start := time.Now()
 
@@ -256,10 +262,8 @@ func trans_file(file_name string, data_conn net.Conn) {
 
 	end := time.Now()
 
-	//d, _ := time.ParseDuration("-24h")
-	//fmt.Println(k.Add(d))
 	logger.Printf("download :%s :%d %s", file_name, file_len, end.Sub(start))
-
+	fmt.Printf("download :%s :%d %s\n", file_name, file_len, end.Sub(start))
 	return
 }
 
@@ -267,7 +271,7 @@ func pasv_trans_file(ftp ftp_server, file_name string) {
 
 	var file_len int64
 
-	read_buf := make([]uint8, 4096)
+	read_buf := make([]uint8, BUF_SIZE)
 
 	ftp.data_conn, ftp.err = net.Dial("tcp", ftp.data_ip_port)
 	if ftp.err != nil {
@@ -350,9 +354,9 @@ var logfile *os.File
 var file_list []file
 var file_num int
 
-func main() {
+var wait_ftp sync.WaitGroup
 
-	var wait_ftp sync.WaitGroup
+func main() {
 
 	logger, logfile = log_init()
 
@@ -367,7 +371,7 @@ func main() {
 
 	logger.Println(num)
 
-	wait_ftp.Add(num + 1)
+	wait_ftp.Add(num)
 
 	for i := 0; i < num; i++ {
 		//logger.Print("%d %s: %s: %s", i, server_list[i].ip_port, server_list[i].name, server_list[i].passwd)
@@ -382,7 +386,7 @@ func main() {
 
 func get_server_list() ([]ftp_server, int) {
 
-	server_list := make([]ftp_server, 60, 200)
+	server_list := make([]ftp_server, 60, SERVER_MAX)
 
 	ini_file, err := os.Open("server.ini")
 
@@ -426,7 +430,7 @@ func get_server_list() ([]ftp_server, int) {
 
 		line += 1
 
-		if line >= 200 {
+		if line >= SERVER_MAX {
 			logger.Fatal("line is beyond 200")
 			break
 		}
@@ -443,7 +447,7 @@ func get_server_list() ([]ftp_server, int) {
 }
 
 func get_file_list() ([]file, int) {
-	file_list := make([]file, 60, 2000)
+	file_list := make([]file, 60, FILE_MAX)
 
 	ini_file, err := os.Open("file.ini")
 
@@ -451,7 +455,7 @@ func get_file_list() ([]file, int) {
 		logger.Fatal(err)
 	}
 
-	//defer ini_file.Close()
+	defer ini_file.Close()
 
 	bio_reader := bufio.NewReader(ini_file)
 
@@ -571,8 +575,8 @@ func get_ip_port(recv_buf string) string {
 
 func ftp_main(ftp ftp_server) {
 
-	data := make([]uint8, 4096)
-	read_buf := make([]uint8, 4096)
+	data := make([]uint8, BUF_SIZE)
+	read_buf := make([]uint8, BUF_SIZE)
 
 	ftp.command_conn, ftp.err = net.Dial("tcp", ftp.ip+":"+ftp.port)
 	if ftp.err != nil {
@@ -582,6 +586,7 @@ func ftp_main(ftp ftp_server) {
 	defer ftp.command_conn.Close()
 
 	logger.Println("Connect Server: " + ftp.ip + ":" + ftp.port + " OK")
+	fmt.Println("Connect Server: " + ftp.ip + ":" + ftp.port + " OK")
 
 	/* need loop for read sock buf */
 	read_len, err := ftp.command_conn.Read(data[:])
@@ -649,6 +654,10 @@ func ftp_main(ftp ftp_server) {
 	//ftpcmd("XPWD ", read_buf, ftp.command_conn)
 
 	ftpcmd("QUIT", read_buf, ftp.command_conn)
+
+	fmt.Println("Quit the Server:" + ftp.ip)
+
+	wait_ftp.Done()
 
 	return
 }
