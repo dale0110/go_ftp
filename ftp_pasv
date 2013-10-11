@@ -389,13 +389,16 @@ func main() {
 	//wait the ftp download goroutines result
 	for j := 0; j < num; j++ {
 		select {
-		case r := <-server_list[j].msg:
-			fmt.Println(r)
+		case gr := <-server_list[j].msg:
+			logger.Printf("goroutine %d exit", gr)
+			fmt.Printf("goroutine %d exit\n", gr)
 		}
 	}
+
 	//wait_ftp.Wait()
 	//time.Sleep(1e10)
 
+	return
 }
 
 func get_server_list() ([]ftp_server, int) {
