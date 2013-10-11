@@ -1,18 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
-	"net"
-	"strconv"
-	"time"
-	//"runtime"
-	"bufio"
 	"math/rand"
+	"net"
 	"os"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 	//"regexp"
 )
 
@@ -23,6 +23,8 @@ const (
 )
 
 type ftp_server struct {
+	index int
+
 	ip     string //"10.80.222.35""
 	port   string //"36"
 	name   string //"anonymous"
@@ -38,6 +40,8 @@ type ftp_server struct {
 
 	//the follow is for pasv mode
 	data_ip_port string
+
+	msg chan int
 }
 
 type file struct {
@@ -358,6 +362,8 @@ var wait_ftp sync.WaitGroup
 
 func main() {
 
+	runtime.GOMAXPROCS(4)
+
 	logger, logfile = log_init()
 
 	defer logfile.Close()
@@ -373,13 +379,21 @@ func main() {
 
 	wait_ftp.Add(num)
 
+	// start the ftp download goroutines
 	for i := 0; i < num; i++ {
 		//logger.Print("%d %s: %s: %s", i, server_list[i].ip_port, server_list[i].name, server_list[i].passwd)
 		logger.Println(server_list[i])
 		go ftp_main(server_list[i])
 	}
 
-	wait_ftp.Wait()
+	//wait the ftp download goroutines result
+	for j := 0; j < num; j++ {
+		select {
+		case r := <-server_list[j].msg:
+			fmt.Println(r)
+		}
+	}
+	//wait_ftp.Wait()
 	//time.Sleep(1e10)
 
 }
@@ -426,6 +440,8 @@ func get_server_list() ([]ftp_server, int) {
 
 		fmt.Sscanf(string(buf), "%s %s %s %s", &server_list[line].ip, &server_list[line].port, &server_list[line].name, &server_list[line].passwd)
 		server_list[line].local_port = 50000 + line*1000
+		server_list[line].index = line
+		server_list[line].msg = make(chan int)
 		logger.Println(line, server_list[line].ip, server_list[line].port, server_list[line].name, server_list[line].passwd)
 
 		line += 1
@@ -600,6 +616,8 @@ func ftp_main(ftp ftp_server) {
 
 	ftpcmd("PASS "+ftp.passwd, read_buf, ftp.command_conn)
 
+	fmt.Println("Login OK")
+
 	ftpcmd("SYST", read_buf, ftp.command_conn)
 
 	ftpcmd("TYPE I", read_buf, ftp.command_conn)
@@ -657,7 +675,6 @@ func ftp_main(ftp ftp_server) {
 
 	fmt.Println("Quit the Server:" + ftp.ip)
 
-	wait_ftp.Done()
-
+	ftp.msg <- ftp.index
 	return
 }
