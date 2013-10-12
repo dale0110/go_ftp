@@ -11,7 +11,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
+	//"sync"
+	. "os"
+	//	"syscall"
 	"time"
 	//"regexp"
 )
@@ -23,7 +25,10 @@ const (
 )
 
 type ftp_server struct {
-	index int
+	index int //当前下载ftp服务器 索引，用于传递给主程序，通知结束
+
+	pwd  string //当前下载工作路径
+	root string //该服务器的下载目录根路径
 
 	ip     string //"10.80.222.35""
 	port   string //"36"
@@ -45,8 +50,9 @@ type ftp_server struct {
 }
 
 type file struct {
-	path string
-	name string
+	path       string
+	name       string
+	local_path string
 }
 
 func get_rand_int(max int) int {
@@ -213,6 +219,8 @@ func port_trans_file(file_name string, ftp *ftp_server) {
 		return
 	}
 
+	//切换下载路径
+	os.Chdir(ftp.pwd)
 	trans_file(file_name, ftp.data_conn)
 
 	//recv cmd result
@@ -340,6 +348,16 @@ func make_change_dir(dir string) {
 	//fmt.Printf(dir)
 	os.Mkdir(dir, os.FileMode(777))
 	os.Chdir(dir)
+
+	//fmt.Println(Getwd())
+}
+
+//make dir and change to this dir
+func make_change_all_dir(dir string) {
+	os.MkdirAll(dir, os.FileMode(777))
+	os.Chdir(dir)
+
+	//fmt.Println(Getwd())
 }
 
 //make the dir by the name of cur time
@@ -358,8 +376,6 @@ var logfile *os.File
 var file_list []file
 var file_num int
 
-var wait_ftp sync.WaitGroup
-
 func main() {
 
 	runtime.GOMAXPROCS(4)
@@ -377,8 +393,6 @@ func main() {
 
 	logger.Println(num)
 
-	wait_ftp.Add(num)
-
 	// start the ftp download goroutines
 	for i := 0; i < num; i++ {
 		//logger.Print("%d %s: %s: %s", i, server_list[i].ip_port, server_list[i].name, server_list[i].passwd)
@@ -395,7 +409,6 @@ func main() {
 		}
 	}
 
-	//wait_ftp.Wait()
 	//time.Sleep(1e10)
 
 	return
@@ -508,6 +521,8 @@ func get_file_list() ([]file, int) {
 		} else {
 			file_list[line].path = string(buf[0:num])
 		}
+
+		file_list[line].local_path = strings.Replace(file_list[line].path, "/", "\\", -1)
 
 		file_list[line].name = string(buf[num+1:])
 
@@ -626,7 +641,10 @@ func ftp_main(ftp ftp_server) {
 	ftpcmd("TYPE I", read_buf, ftp.command_conn)
 
 	//ftpcmd("CWD /book/Linux-Unix/", read_buf, ftp.command_conn)
+
 	make_change_dir(ftp.ip)
+	ftp.pwd, _ = Getwd()
+	ftp.root = ftp.pwd
 
 	//port download
 	for i := 0; i < file_num; i++ {
@@ -634,11 +652,14 @@ func ftp_main(ftp ftp_server) {
 		ftpcmd("CWD "+file_list[i].path, read_buf, ftp.command_conn)
 
 		if file_list[i].path == "/" {
-
+			ftp.pwd = ftp.root
 		} else {
-			make_change_dir(file_list[i].path)
+
+			ftp.pwd = ftp.pwd + file_list[i].local_path
+			os.MkdirAll(ftp.pwd, os.FileMode(777))
 		}
 
+		os.Chdir(ftp.pwd)
 		port_trans_file(file_list[i].name, &ftp)
 	}
 
