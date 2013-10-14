@@ -28,7 +28,7 @@ type ftp_server struct {
 	index int //当前下载ftp服务器 索引，用于传递给主程序，通知结束
 
 	pwd  string //当前下载工作路径
-	root string //该服务器的下载目录根路径
+	root string //此次下载目录根路径
 
 	ip     string //"10.80.222.35""
 	port   string //"36"
@@ -275,7 +275,7 @@ func trans_file(file_name string, data_conn net.Conn) {
 	end := time.Now()
 
 	logger.Printf("download :%s :%d %s", file_name, file_len, end.Sub(start))
-	fmt.Printf("download :%s :%d %s\n", file_name, file_len, end.Sub(start))
+	fmt.Printf("download %s %d %s\n", file_name, file_len, end.Sub(start))
 	return
 }
 
@@ -375,6 +375,7 @@ var logfile *os.File
 
 var file_list []file
 var file_num int
+var root string
 
 func main() {
 
@@ -389,6 +390,7 @@ func main() {
 	file_list, file_num = get_file_list()
 
 	make_download_dir()
+	root, _ = Getwd()
 	//fmt.Println(len(file_list))
 
 	logger.Println(num)
@@ -634,7 +636,7 @@ func ftp_main(ftp ftp_server) {
 
 	ftpcmd("PASS "+ftp.passwd, read_buf, ftp.command_conn)
 
-	fmt.Println("Login OK")
+	fmt.Println("Login " + ftp.ip + " OK")
 
 	ftpcmd("SYST", read_buf, ftp.command_conn)
 
@@ -642,25 +644,23 @@ func ftp_main(ftp ftp_server) {
 
 	//ftpcmd("CWD /book/Linux-Unix/", read_buf, ftp.command_conn)
 
-	make_change_dir(ftp.ip)
-	ftp.pwd, _ = Getwd()
-	ftp.root = ftp.pwd
-
 	//port download
 	for i := 0; i < file_num; i++ {
 
+		fmt.Println("start " + ftp.ip + file_list[i].path + "/" + file_list[i].name)
 		ftpcmd("CWD "+file_list[i].path, read_buf, ftp.command_conn)
 
 		if file_list[i].path == "/" {
-			ftp.pwd = ftp.root
+			ftp.pwd = root + "/" + ftp.ip
 		} else {
 
-			ftp.pwd = ftp.pwd + file_list[i].local_path
-			os.MkdirAll(ftp.pwd, os.FileMode(777))
-		}
+			ftp.pwd = root + "/" + ftp.ip + "/" + file_list[i].local_path
 
+		}
+		os.MkdirAll(ftp.pwd, os.FileMode(777))
 		os.Chdir(ftp.pwd)
 		port_trans_file(file_list[i].name, &ftp)
+
 	}
 
 	//NLIST
